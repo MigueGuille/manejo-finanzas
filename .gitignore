@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+backend/prisma/dev.db
+backend/prisma/migrations/migration_lock.toml
+*.log
+.DS_Store
+

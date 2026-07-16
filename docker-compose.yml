@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: finance-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: finance_app
+      POSTGRES_USER: finance
+      POSTGRES_PASSWORD: finance
+    ports:
+      - "5432:5432"
+    volumes:
+      - finance_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finance -d finance_app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: finance-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://finance:finance@postgres:5432/finance_app?schema=public
+      PORT: 4000
+      CLIENT_ORIGIN: http://localhost:5173
+      JWT_ACCESS_SECRET: local-compose-access-secret-change-me
+      JWT_REFRESH_SECRET: local-compose-refresh-secret-change-me
+      DEFAULT_CURRENCY: MXN
+    ports:
+      - "4000:4000"
+
+  frontend:
+    build: ./frontend
+    container_name: finance-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:4000/api
+    ports:
+      - "5173:5173"
+
+volumes:
+  finance_pg_data:
+

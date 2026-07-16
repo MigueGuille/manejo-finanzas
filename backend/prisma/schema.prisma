@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TransactionType {
+  income
+  expense
+}
+
+enum PeriodType {
+  daily
+  biweekly
+  monthly
+}
+
+enum RecurrenceFrequency {
+  daily
+  weekly
+  biweekly
+  monthly
+  yearly
+}
+
+model User {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  email                String                 @unique
+  passwordHash         String                 @map("password_hash")
+  currency             String                 @default("MXN")
+  periodType           PeriodType             @default(monthly) @map("period_type")
+  biweeklyConfig       Json?                  @map("biweekly_config")
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  categories           Category[]
+  transactions         Transaction[]
+  recurringTransactions RecurringTransaction[]
+  budgets              Budget[]
+  savingsGoals         SavingsGoal[]
+  periodSnapshots      PeriodSnapshot[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String                 @id @default(uuid()) @db.Uuid
+  userId      String                 @map("user_id") @db.Uuid
+  name        String
+  type        TransactionType
+  color       String?
+  icon        String?
+  isEssential Boolean                @default(false) @map("is_essential")
+  createdAt   DateTime               @default(now()) @map("created_at")
+  user        User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  recurringTransactions RecurringTransaction[]
+  budgets     Budget[]
+
+  @@index([userId])
+  @@index([type])
+  @@unique([userId, name, type])
+  @@map("categories")
+}
+
+model Transaction {
+  id              String                 @id @default(uuid()) @db.Uuid
+  userId          String                 @map("user_id") @db.Uuid
+  categoryId      String                 @map("category_id") @db.Uuid
+  type            TransactionType
+  amount          Decimal                @db.Decimal(14, 2)
+  currency        String                 @default("USD")
+  exchangeRate    Decimal?               @map("exchange_rate") @db.Decimal(14, 4)
+  amountUsd       Decimal                @default(0) @map("amount_usd") @db.Decimal(14, 2)
+  amountBs        Decimal                @default(0) @map("amount_bs") @db.Decimal(14, 2)
+  exchangeDifferenceBs Decimal           @default(0) @map("exchange_difference_bs") @db.Decimal(14, 2)
+  paymentMethod   String?                @map("payment_method")
+  description     String?
+  transactionDate DateTime               @map("transaction_date") @db.Date
+  isRecurring     Boolean                @default(false) @map("is_recurring")
+  recurrenceId    String?                @map("recurrence_id") @db.Uuid
+  deletedAt       DateTime?              @map("deleted_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        Category               @relation(fields: [categoryId], references: [id])
+  recurrence      RecurringTransaction?  @relation(fields: [recurrenceId], references: [id])
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([transactionDate])
+  @@index([userId, transactionDate])
+  @@map("transactions")
+}
+
+model RecurringTransaction {
+  id              String                 @id @default(uuid()) @db.Uuid
+  userId          String                 @map("user_id") @db.Uuid
+  categoryId      String                 @map("category_id") @db.Uuid
+  type            TransactionType
+  amount          Decimal                @db.Decimal(14, 2)
+  currency        String                 @default("USD")
+  exchangeRate    Decimal?               @map("exchange_rate") @db.Decimal(14, 4)
+  exchangeDifferenceBs Decimal           @default(0) @map("exchange_difference_bs") @db.Decimal(14, 2)
+  paymentMethod   String?                @map("payment_method")
+  description     String?
+  frequency       RecurrenceFrequency
+  startDate       DateTime               @map("start_date") @db.Date
+  endDate         DateTime?              @map("end_date") @db.Date
+  nextRunDate     DateTime?              @map("next_run_date") @db.Date
+  active          Boolean                @default(true)
+  createdAt       DateTime               @default(now()) @map("created_at")
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        Category               @relation(fields: [categoryId], references: [id])
+  transactions    Transaction[]
+
+  @@index([userId])
+  @@index([nextRunDate])
+  @@map("recurring_transactions")
+}
+
+model Budget {
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String     @map("user_id") @db.Uuid
+  categoryId  String     @map("category_id") @db.Uuid
+  periodType  PeriodType @map("period_type")
+  amountLimit Decimal    @map("amount_limit") @db.Decimal(14, 2)
+  periodStart DateTime   @map("period_start") @db.Date
+  periodEnd   DateTime   @map("period_end") @db.Date
+  createdAt   DateTime   @default(now()) @map("created_at")
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    Category   @relation(fields: [categoryId], references: [id])
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([periodStart, periodEnd])
+  @@map("budgets")
+}
+
+model SavingsGoal {
+  id            String                @id @default(uuid()) @db.Uuid
+  userId        String                @map("user_id") @db.Uuid
+  name          String
+  targetAmount  Decimal               @map("target_amount") @db.Decimal(14, 2)
+  currentAmount Decimal               @default(0) @map("current_amount") @db.Decimal(14, 2)
+  targetDate    DateTime?             @map("target_date") @db.Date
+  createdAt     DateTime              @default(now()) @map("created_at")
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contributions SavingsContribution[]
+
+  @@index([userId])
+  @@map("savings_goals")
+}
+
+model SavingsContribution {
+  id               String      @id @default(uuid()) @db.Uuid
+  savingsGoalId    String      @map("savings_goal_id") @db.Uuid
+  amount           Decimal     @db.Decimal(14, 2)
+  contributionDate DateTime    @map("contribution_date") @db.Date
+  createdAt        DateTime    @default(now()) @map("created_at")
+  savingsGoal      SavingsGoal @relation(fields: [savingsGoalId], references: [id], onDelete: Cascade)
+
+  @@index([savingsGoalId])
+  @@map("savings_contributions")
+}
+
+model PeriodSnapshot {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  periodType   PeriodType @map("period_type")
+  periodStart  DateTime   @map("period_start") @db.Date
+  periodEnd    DateTime   @map("period_end") @db.Date
+  totalIncome  Decimal    @default(0) @map("total_income") @db.Decimal(14, 2)
+  totalExpense Decimal    @default(0) @map("total_expense") @db.Decimal(14, 2)
+  balance      Decimal    @default(0) @db.Decimal(14, 2)
+  savingsRate  Decimal    @default(0) @map("savings_rate") @db.Decimal(5, 2)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([periodStart, periodEnd])
+  @@unique([userId, periodType, periodStart, periodEnd])
+  @@map("period_snapshots")
+}
