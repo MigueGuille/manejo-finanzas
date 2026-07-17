@@ -4,12 +4,14 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { z } from "zod";
-import { ErrorPanel, LoadingPanel } from "../components/LoadStates.jsx";
+import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
+import { ErrorPanel, LoadingPanel, LoadingSpinner } from "../components/LoadStates.jsx";
 import { MoneyInput } from "../components/MoneyInput.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { FieldError, FormGrid } from "../components/forms.jsx";
 import { endpoints } from "../services/api.js";
 import { queryClient } from "../store/queryClient.js";
+import { toast } from "../store/toastStore.js";
 import { currencyLabel, money, today } from "../utils/formatters.js";
 
 const schema = z.object({
@@ -26,6 +28,7 @@ const schema = z.object({
 
 export const TransactionsPage = () => {
   const [filters, setFilters] = useState({ page: 1, pageSize: 20 });
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const transactions = useQuery({ queryKey: ["transactions", filters], queryFn: () => endpoints.transactions.list(filters) });
   const categories = useQuery({ queryKey: ["categories"], queryFn: endpoints.categories.list });
   const [type, setType] = useState("expense");
@@ -68,24 +71,42 @@ export const TransactionsPage = () => {
       });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      toast.success("Transaccion guardada", "El movimiento se registro correctamente.");
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: endpoints.transactions.remove,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["transactions"] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
+      toast.success("Transaccion eliminada", "El movimiento fue borrado correctamente.");
+    }
   });
 
   const onSubmit = (values) => createMutation.mutate({ ...values, currency: values.currency === "BS" ? "VES" : values.currency });
+  const confirmDeleteTransaction = () => {
+    if (!confirmDelete) return;
+    deleteMutation.mutate(confirmDelete.id, { onSettled: () => setConfirmDelete(null) });
+  };
   const updateFilter = (patch) => setFilters((current) => ({ ...current, ...patch, page: 1 }));
 
   return (
     <>
-      <PageHeader title="Transacciones" description="Registra ingresos y gastos en USD o Bs con tasa, equivalente y diferencial cambiario." action={<button className="btn-primary" type="submit" form="transaction-form"><Plus size={17} /> Agregar</button>} />
+      <PageHeader
+        title="Transacciones"
+        description="Registra ingresos y gastos en USD o Bs con tasa, equivalente y diferencial cambiario."
+        action={
+          <button className="btn-primary" type="submit" form="transaction-form" disabled={createMutation.isPending}>
+            {createMutation.isPending ? <LoadingSpinner label="Agregando transaccion..." className="text-current" /> : <Plus size={17} />}
+            {createMutation.isPending ? "Agregando..." : "Agregar"}
+          </button>
+        }
+      />
       <div className="grid gap-5 p-3 sm:p-6 xl:grid-cols-[430px_1fr]">
         <section className="panel p-4">
           <h2 className="mb-4 font-bold text-ink dark:text-white">Nueva transaccion</h2>
-          <form id="transaction-form" className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+          <form id="transaction-form" className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} aria-busy={createMutation.isPending}>
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
               {["expense", "income"].map((item) => (
                 <button key={item} type="button" className={`min-h-11 rounded-md px-3 py-2 text-sm font-semibold ${type === item ? "bg-white shadow-sm dark:bg-slate-950" : "text-slate-500"}`} onClick={() => { setType(item); form.setValue("type", item); form.setValue("categoryId", ""); }}>
@@ -213,7 +234,7 @@ export const TransactionsPage = () => {
                     <h3 className="mt-1 font-bold text-ink dark:text-white">{item.category?.name}</h3>
                     <p className="text-sm text-slate-500">{item.paymentMethod || "Sin metodo"} · {item.description || "Sin descripcion"}</p>
                   </div>
-                  <button className="rounded-md p-2 text-slate-500 hover:bg-slate-100" type="button" title="Eliminar" onClick={() => deleteMutation.mutate(item.id)}>
+                  <button className="rounded-md p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50" type="button" title="Eliminar" onClick={() => setConfirmDelete(item)} disabled={deleteMutation.isPending}>
                     <Trash2 size={17} />
                   </button>
                 </div>
@@ -265,7 +286,7 @@ export const TransactionsPage = () => {
                       <td className="px-4 py-3 text-right font-semibold">{money(item.amountUsd, "USD")}</td>
                       <td className="px-4 py-3 text-right font-semibold">{money(item.amountBs, "VES")}</td>
                       <td className="px-4 py-3 text-right">
-                        <button className="rounded-md p-2 text-slate-500 hover:bg-slate-100" type="button" title="Eliminar" onClick={() => deleteMutation.mutate(item.id)}>
+                        <button className="rounded-md p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50" type="button" title="Eliminar" onClick={() => setConfirmDelete(item)} disabled={deleteMutation.isPending}>
                           <Trash2 size={17} />
                         </button>
                       </td>
@@ -275,8 +296,18 @@ export const TransactionsPage = () => {
               </table>
             </div>
           </div>
+          {deleteMutation.isError ? <ErrorPanel error={deleteMutation.error} /> : null}
         </section>
       </div>
+      <ConfirmDialog
+        open={Boolean(confirmDelete)}
+        title="Eliminar transaccion"
+        description={`Vas a borrar ${confirmDelete?.category?.name || "esta transaccion"}. Esta accion no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        isLoading={deleteMutation.isPending}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={confirmDeleteTransaction}
+      />
     </>
   );
 };

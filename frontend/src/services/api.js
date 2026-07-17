@@ -1,6 +1,30 @@
 import axios from "axios";
+import { toast } from "../store/toastStore.js";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
+let activeRequestCount = 0;
+const requestActivityListeners = new Set();
+
+const notifyRequestActivity = () => {
+  requestActivityListeners.forEach((listener) => listener());
+};
+
+const incrementActiveRequests = () => {
+  activeRequestCount += 1;
+  notifyRequestActivity();
+};
+
+const decrementActiveRequests = () => {
+  activeRequestCount = Math.max(0, activeRequestCount - 1);
+  notifyRequestActivity();
+};
+
+export const subscribeRequestActivity = (listener) => {
+  requestActivityListeners.add(listener);
+  return () => requestActivityListeners.delete(listener);
+};
+
+export const getActiveRequestCount = () => activeRequestCount;
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -12,13 +36,26 @@ export const setAccessToken = (token) => {
   else delete api.defaults.headers.common.Authorization;
 };
 
+api.interceptors.request.use(
+  (config) => {
+    incrementActiveRequests();
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 api.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    decrementActiveRequests();
+    return response.data;
+  },
   (error) => {
+    decrementActiveRequests();
     if (error.response?.status === 401) {
       window.dispatchEvent(new Event("finance-auth-expired"));
     }
     const message = error.response?.data?.message || error.message || "Error de red";
+    toast.error("No se pudo completar la accion", message);
     return Promise.reject(new Error(message));
   }
 );

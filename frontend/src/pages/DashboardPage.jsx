@@ -6,6 +6,7 @@ import { ErrorPanel, LoadingPanel } from "../components/LoadStates.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { StatCard } from "../components/StatCard.jsx";
 import { endpoints } from "../services/api.js";
+import { toast } from "../store/toastStore.js";
 import { money, percent } from "../utils/formatters.js";
 
 export const DashboardPage = () => {
@@ -23,6 +24,7 @@ export const DashboardPage = () => {
     anchor.download = "reporte-finanzas.csv";
     anchor.click();
     URL.revokeObjectURL(url);
+    toast.success("Reporte descargado", "El CSV se genero correctamente.");
   };
 
   return (

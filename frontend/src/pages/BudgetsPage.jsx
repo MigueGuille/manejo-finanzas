@@ -5,12 +5,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { BadgeDollarSign, Pencil, Trash2, X } from "lucide-react";
 import { z } from "zod";
 import { BudgetProgress } from "../components/BudgetProgress.jsx";
-import { ErrorPanel, LoadingPanel } from "../components/LoadStates.jsx";
+import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
+import { ErrorPanel, LoadingPanel, LoadingSpinner } from "../components/LoadStates.jsx";
 import { MoneyInput } from "../components/MoneyInput.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
 import { FieldError, FormGrid } from "../components/forms.jsx";
 import { endpoints } from "../services/api.js";
 import { queryClient } from "../store/queryClient.js";
+import { toast } from "../store/toastStore.js";
 
 const toDateInput = (date) => {
   const year = date.getFullYear();
@@ -63,6 +65,7 @@ const periodOptions = [
 
 export const BudgetsPage = () => {
   const [editingBudget, setEditingBudget] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
   const budgets = useQuery({ queryKey: ["budgets"], queryFn: endpoints.budgets.list });
   const categories = useQuery({ queryKey: ["categories"], queryFn: endpoints.categories.list });
   const expenseCategories = (categories.data?.data || []).filter((category) => category.type === "expense");
@@ -80,6 +83,7 @@ export const BudgetsPage = () => {
     onSuccess: () => {
       form.reset(defaultValues());
       invalidateBudgets();
+      toast.success("Presupuesto creado", "El limite se guardo correctamente.");
     }
   });
 
@@ -89,12 +93,16 @@ export const BudgetsPage = () => {
       setEditingBudget(null);
       form.reset(defaultValues());
       invalidateBudgets();
+      toast.success("Presupuesto actualizado", "Los cambios se guardaron correctamente.");
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: endpoints.budgets.remove,
-    onSuccess: invalidateBudgets
+    onSuccess: () => {
+      invalidateBudgets();
+      toast.success("Presupuesto eliminado", "El presupuesto fue borrado correctamente.");
+    }
   });
 
   const setPeriodType = (periodType) => {
@@ -121,11 +129,22 @@ export const BudgetsPage = () => {
   };
 
   const submit = (values) => {
-    if (editingBudget) updateMutation.mutate({ id: editingBudget.id, values });
+    if (editingBudget) setConfirmAction({ type: "update", values });
     else createMutation.mutate(values);
   };
 
   const activeMutation = editingBudget ? updateMutation : createMutation;
+  const confirmIsLoading = confirmAction?.type === "delete" ? deleteMutation.isPending : updateMutation.isPending;
+  const confirmBudgetAction = () => {
+    if (!confirmAction) return;
+
+    if (confirmAction.type === "delete") {
+      deleteMutation.mutate(confirmAction.budget.id, { onSettled: () => setConfirmAction(null) });
+      return;
+    }
+
+    updateMutation.mutate({ id: editingBudget.id, values: confirmAction.values }, { onSettled: () => setConfirmAction(null) });
+  };
 
   return (
     <>
@@ -139,15 +158,16 @@ export const BudgetsPage = () => {
                 <X size={17} /> Cancelar
               </button>
             ) : null}
-            <button className="btn-primary" type="submit" form="budget-form">
-              <BadgeDollarSign size={17} /> {editingBudget ? "Guardar" : "Crear"}
+            <button className="btn-primary" type="submit" form="budget-form" disabled={activeMutation.isPending}>
+              {activeMutation.isPending ? <LoadingSpinner label="Procesando presupuesto..." className="text-current" /> : <BadgeDollarSign size={17} />}
+              {activeMutation.isPending ? (editingBudget ? "Guardando..." : "Creando...") : editingBudget ? "Guardar" : "Crear"}
             </button>
           </div>
         }
       />
       <div className="grid gap-5 p-3 sm:p-6 lg:grid-cols-[420px_1fr]">
         <section className="panel p-4">
-          <form id="budget-form" className="space-y-4" onSubmit={form.handleSubmit(submit)}>
+          <form id="budget-form" className="space-y-4" onSubmit={form.handleSubmit(submit)} aria-busy={activeMutation.isPending}>
             <div>
               <h2 className="font-bold text-ink dark:text-white">{editingBudget ? "Editar presupuesto" : "Nuevo presupuesto"}</h2>
               <p className="mt-1 text-sm text-slate-500">Los limites se guardan en USD para comparar gastos en USD/Bs.</p>
@@ -232,6 +252,7 @@ export const BudgetsPage = () => {
                     type="button"
                     title="Editar"
                     onClick={() => startEdit(budget)}
+                    disabled={deleteMutation.isPending || updateMutation.isPending}
                   >
                     <Pencil size={16} />
                   </button>
@@ -239,9 +260,8 @@ export const BudgetsPage = () => {
                     className="rounded-md p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                     type="button"
                     title="Eliminar"
-                    onClick={() => {
-                      if (window.confirm("Eliminar este presupuesto?")) deleteMutation.mutate(budget.id);
-                    }}
+                    onClick={() => setConfirmAction({ type: "delete", budget })}
+                    disabled={deleteMutation.isPending || updateMutation.isPending}
                   >
                     <Trash2 size={16} />
                   </button>
@@ -251,6 +271,20 @@ export const BudgetsPage = () => {
           ))}
         </section>
       </div>
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        title={confirmAction?.type === "delete" ? "Eliminar presupuesto" : "Guardar cambios"}
+        description={
+          confirmAction?.type === "delete"
+            ? `Vas a borrar el presupuesto de "${confirmAction?.budget?.category?.name || "esta categoria"}". Esta accion no se puede deshacer.`
+            : "Confirma que quieres reemplazar los valores actuales de este presupuesto."
+        }
+        confirmLabel={confirmAction?.type === "delete" ? "Eliminar" : "Guardar cambios"}
+        tone={confirmAction?.type === "delete" ? "danger" : "default"}
+        isLoading={confirmIsLoading}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={confirmBudgetAction}
+      />
     </>
   );
 };

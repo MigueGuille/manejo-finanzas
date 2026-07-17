@@ -1,4 +1,6 @@
+import { useSyncExternalStore } from "react";
 import { LoaderCircle } from "lucide-react";
+import { getActiveRequestCount, subscribeRequestActivity } from "../services/api.js";
 
 export const LoadingSpinner = ({ label = "Cargando...", className = "" }) => (
   <span className={`inline-flex items-center justify-center ${className}`} role="status" aria-label={label}>
@@ -17,6 +19,26 @@ export const FullPageLoader = ({ label = "Cargando..." }) => (
     </div>
   </main>
 );
+
+export const GlobalRequestLoader = () => {
+  const activeRequests = useSyncExternalStore(subscribeRequestActivity, getActiveRequestCount, getActiveRequestCount);
+
+  if (!activeRequests) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] grid place-items-center bg-surface px-4 dark:bg-slate-950" role="status" aria-live="polite" aria-label="Cargando contenido">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <div className="grid h-16 w-16 place-items-center rounded-full">
+          <LoaderCircle className="h-8 w-8 animate-spin text-ink dark:text-mint" aria-hidden="true" />
+        </div>
+        <div>
+          {/* <p className="text-sm font-bold text-ink dark:text-white">Cargando contenido...</p> */}
+          {/* <p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-300">Espera mientras se completa la peticion.</p> */}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const LoadingPanel = ({ label = "Cargando datos..." }) => (
   <div className="panel p-5">
