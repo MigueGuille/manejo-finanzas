@@ -6,20 +6,36 @@ const STORAGE_KEY = "finance-auth";
 
 export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      const nextSession = stored ? JSON.parse(stored) : null;
+      setAccessToken(nextSession?.accessToken);
+      return nextSession?.accessToken ? nextSession : null;
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
   });
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     setAccessToken(session?.accessToken);
     if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     else localStorage.removeItem(STORAGE_KEY);
+    setIsReady(true);
   }, [session]);
+
+  useEffect(() => {
+    const handleExpiredSession = () => setSession(null);
+    window.addEventListener("finance-auth-expired", handleExpiredSession);
+    return () => window.removeEventListener("finance-auth-expired", handleExpiredSession);
+  }, []);
 
   const value = useMemo(
     () => ({
       user: session?.user || null,
       token: session?.accessToken || null,
+      isReady,
       isAuthenticated: Boolean(session?.accessToken),
       login: async (payload) => {
         const response = await endpoints.auth.login(payload);
@@ -31,11 +47,10 @@ export const AuthProvider = ({ children }) => {
       },
       logout: () => setSession(null)
     }),
-    [session]
+    [isReady, session]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);
-

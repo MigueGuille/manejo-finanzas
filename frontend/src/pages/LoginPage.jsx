@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { PiggyBank } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { LoadingSpinner } from "../components/LoadStates.jsx";
 import { FieldError } from "../components/forms.jsx";
 import { useAuth } from "../store/AuthProvider.jsx";
 
@@ -16,14 +17,16 @@ const schema = z.object({
 export const LoginPage = () => {
   const [mode, setMode] = useState("login");
   const [serverError, setServerError] = useState("");
-  const { login, register, isAuthenticated } = useAuth();
+  const location = useLocation();
+  const { login, register, isAuthenticated, isReady } = useAuth();
+  const from = location.state?.from?.pathname ? `${location.state.from.pathname}${location.state.from.search || ""}` : "/";
   const {
     register: formRegister,
     handleSubmit,
     formState: { errors, isSubmitting }
   } = useForm({ resolver: zodResolver(schema), defaultValues: { email: "", password: "", currency: "MXN" } });
 
-  if (isAuthenticated) return <Navigate to="/" replace />;
+  if (isReady && isAuthenticated) return <Navigate to={from} replace />;
 
   const onSubmit = async (values) => {
     setServerError("");
@@ -75,11 +78,19 @@ export const LoginPage = () => {
           ) : null}
           {serverError ? <p className="rounded-md bg-rose-50 p-3 text-sm font-medium text-rose-700">{serverError}</p> : null}
           <button className="btn-primary w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Procesando..." : mode === "login" ? "Entrar" : "Crear cuenta"}
+            {isSubmitting ? (
+              <>
+                <LoadingSpinner label="Procesando..." className="text-current" />
+                Procesando...
+              </>
+            ) : mode === "login" ? (
+              "Entrar"
+            ) : (
+              "Crear cuenta"
+            )}
           </button>
         </form>
       </section>
     </main>
   );
 };
-
