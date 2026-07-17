@@ -1,5 +1,6 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Layout } from "./components/Layout.jsx";
+import { FullPageLoader } from "./components/LoadStates.jsx";
 import { useAuth } from "./store/AuthProvider.jsx";
 import { LoginPage } from "./pages/LoginPage.jsx";
 import { DashboardPage } from "./pages/DashboardPage.jsx";
@@ -11,8 +12,12 @@ import { HistoryPage } from "./pages/HistoryPage.jsx";
 import { SettingsPage } from "./pages/SettingsPage.jsx";
 
 const PrivateRoute = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  const location = useLocation();
+  const { isAuthenticated, isReady } = useAuth();
+
+  if (!isReady) return <FullPageLoader label="Preparando tu sesion..." />;
+
+  return isAuthenticated ? children : <Navigate to="/login" replace state={{ from: location }} />;
 };
 
 export const App = () => (
@@ -34,6 +39,6 @@ export const App = () => (
       <Route path="historico" element={<HistoryPage />} />
       <Route path="configuracion" element={<SettingsPage />} />
     </Route>
+    <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 );
-
