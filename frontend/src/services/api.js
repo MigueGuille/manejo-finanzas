@@ -15,6 +15,9 @@ export const setAccessToken = (token) => {
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    if (error.response?.status === 401) {
+      window.dispatchEvent(new Event("finance-auth-expired"));
+    }
     const message = error.response?.data?.message || error.message || "Error de red";
     return Promise.reject(new Error(message));
   }
@@ -43,7 +46,9 @@ export const endpoints = {
   },
   budgets: {
     list: () => api.get("/budgets"),
-    create: (payload) => api.post("/budgets", payload)
+    create: (payload) => api.post("/budgets", payload),
+    update: (id, payload) => api.put(`/budgets/${id}`, payload),
+    remove: (id) => api.delete(`/budgets/${id}`)
   },
   savings: {
     list: () => api.get("/savings-goals"),

@@ -1,12 +1,35 @@
+import { LoaderCircle } from "lucide-react";
+
+export const LoadingSpinner = ({ label = "Cargando...", className = "" }) => (
+  <span className={`inline-flex items-center justify-center ${className}`} role="status" aria-label={label}>
+    <LoaderCircle className="h-5 w-5 animate-spin" aria-hidden="true" />
+    <span className="sr-only">{label}</span>
+  </span>
+);
+
+export const FullPageLoader = ({ label = "Cargando..." }) => (
+  <main className="grid min-h-screen place-items-center bg-surface px-4 dark:bg-slate-950">
+    <div className="flex flex-col items-center gap-4 text-ink dark:text-mint">
+      <div className="grid h-16 w-16 place-items-center rounded-full border border-line bg-white shadow-panel dark:border-slate-800 dark:bg-slate-900">
+        <LoadingSpinner label={label} className="text-ink dark:text-mint" />
+      </div>
+      <p className="text-sm font-semibold text-slate-500 dark:text-slate-300">{label}</p>
+    </div>
+  </main>
+);
+
 export const LoadingPanel = ({ label = "Cargando datos..." }) => (
   <div className="panel p-5">
+    <div className="mb-4 flex items-center gap-3 text-sm font-semibold text-slate-500 dark:text-slate-300">
+      <LoadingSpinner label={label} className="text-ink dark:text-mint" />
+      <span>{label}</span>
+    </div>
     <div className="h-4 w-40 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
     <div className="mt-4 grid gap-3">
       <div className="h-9 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
       <div className="h-9 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
       <div className="h-9 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
     </div>
-    <p className="sr-only">{label}</p>
   </div>
 );
 
@@ -15,4 +38,3 @@ export const ErrorPanel = ({ error }) => (
     {error?.message || "No se pudo cargar la informacion."}
   </div>
 );
-
