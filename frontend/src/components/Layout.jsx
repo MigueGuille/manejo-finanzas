@@ -20,7 +20,7 @@ const ThemeButton = ({ compact = false }) => {
   return (
     <button
       type="button"
-      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 ${compact ? "w-10 px-0" : ""}`}
+      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-line bg-white px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 ${compact ? "h-12 w-12 px-0" : ""}`}
       title={isDark ? "Modo claro" : "Modo oscuro"}
       onClick={toggleTheme}
     >
@@ -39,7 +39,7 @@ const NavItems = ({ mobile = false }) =>
       title={label}
       className={({ isActive }) =>
         mobile
-          ? `flex min-h-11 shrink-0 items-center gap-2 rounded-md px-3 text-xs font-bold ${
+          ? `grid h-12 w-12 shrink-0 place-items-center rounded-md ${
               isActive ? "bg-ink text-white dark:bg-mint dark:text-ink" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-900"
             }`
           : `flex min-h-12 items-center gap-3 rounded-md px-3 text-sm font-semibold ${
@@ -47,8 +47,8 @@ const NavItems = ({ mobile = false }) =>
             }`
       }
     >
-      <Icon size={19} />
-      <span>{label}</span>
+      <Icon size={mobile ? 22 : 19} />
+      {mobile ? <span className="sr-only">{label}</span> : <span>{label}</span>}
     </NavLink>
   ));
 
@@ -57,7 +57,7 @@ export const Layout = () => {
 
   return (
     <div className="min-h-screen bg-surface dark:bg-slate-950 dark:text-slate-100">
-      <header className="mobile-app-header fixed inset-x-0 top-0 z-40 border-b border-line bg-white/95 px-3 pb-2 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:hidden">
+      <header className="mobile-app-header sticky top-0 z-30 border-b border-line bg-white/95 px-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:hidden">
         <div className="flex min-h-14 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-ink text-white dark:bg-mint dark:text-ink">
@@ -68,22 +68,27 @@ export const Layout = () => {
               <p className="truncate text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+        </div>
+      </header>
+
+      <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-2 shadow-[0_-10px_30px_rgba(24,33,47,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:hidden" aria-label="Navegacion principal">
+        <div className="flex min-h-16 items-center gap-2">
+          <div className="scrollbar-none flex flex-1 gap-2 overflow-x-auto pr-1">
+            <NavItems mobile />
+          </div>
+          <div className="flex shrink-0 gap-2 border-l border-line pl-2 dark:border-slate-800">
             <ThemeButton compact />
             <button
               type="button"
-              className="grid h-10 w-10 place-items-center rounded-md border border-line bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="grid h-12 w-12 place-items-center rounded-md border border-line bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               title="Salir"
               onClick={logout}
             >
-              <LogOut size={18} />
+              <LogOut size={20} />
             </button>
           </div>
         </div>
-        <nav className="scrollbar-none flex gap-2 overflow-x-auto pb-1">
-          <NavItems mobile />
-        </nav>
-      </header>
+      </nav>
 
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-line bg-white dark:border-slate-800 dark:bg-slate-950 md:block">
         <div className="flex h-20 items-center gap-3 px-5">

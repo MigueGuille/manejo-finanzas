@@ -23,8 +23,28 @@ body {
 }
 
 .mobile-main-offset {
-  padding-top: calc(7.5rem + env(safe-area-inset-top));
-  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  padding-bottom: calc(10rem + env(safe-area-inset-bottom));
+}
+
+.mobile-bottom-nav {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+.mobile-page-action {
+  position: fixed;
+  inset-inline: 0;
+  bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  z-index: 45;
+  border-top: 1px solid #d8dde8;
+  background: rgb(255 255 255 / 0.96);
+  padding: 0.75rem 1rem;
+  box-shadow: 0 -12px 30px rgba(24, 33, 47, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.dark .mobile-page-action {
+  border-color: #1e293b;
+  background: rgb(2 6 23 / 0.96);
 }
 
 .scrollbar-none {
@@ -33,6 +53,23 @@ body {
 
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+@media (min-width: 768px) {
+  .mobile-page-action {
+    position: static;
+    border-top: 0;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-main-offset {
+    padding-bottom: 0;
+  }
 }
 
 @keyframes toast-slide-in {

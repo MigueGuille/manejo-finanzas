@@ -4,6 +4,6 @@ export const PageHeader = ({ title, description, action }) => (
       <h1 className="text-2xl font-bold text-ink dark:text-white">{title}</h1>
       {description ? <p className="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">{description}</p> : null}
     </div>
-    {action ? <div className="flex w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto">{action}</div> : null}
+    {action ? <div className="mobile-page-action flex w-full md:w-auto [&>*]:w-full md:[&>*]:w-auto">{action}</div> : null}
   </header>
 );
