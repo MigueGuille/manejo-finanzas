@@ -27,7 +27,7 @@ export const transactionRepository = {
     const [items, total] = await Promise.all([
       prisma.transaction.findMany({
         where,
-        include: { category: true },
+        include: { category: true, budget: true },
         orderBy: [{ transactionDate: "desc" }, { createdAt: "desc" }],
         skip: (page - 1) * pageSize,
         take: pageSize
@@ -40,12 +40,12 @@ export const transactionRepository = {
   findAllForRange(userId, from, to) {
     return prisma.transaction.findMany({
       where: buildWhere(userId, { from, to }),
-      include: { category: true },
+      include: { category: true, budget: true },
       orderBy: { transactionDate: "asc" }
     });
   },
   findById(userId, id) {
-    return prisma.transaction.findFirst({ where: { id, userId, deletedAt: null }, include: { category: true } });
+    return prisma.transaction.findFirst({ where: { id, userId, deletedAt: null }, include: { category: true, budget: true } });
   },
   create(userId, data) {
     const currencyAmounts = calculateCurrencyAmounts(data);
@@ -61,7 +61,7 @@ export const transactionRepository = {
         exchangeDifferenceBs: new Prisma.Decimal(currencyAmounts.exchangeDifferenceBs),
         transactionDate: toDateOnly(data.transactionDate)
       },
-      include: { category: true }
+      include: { category: true, budget: true }
     });
   },
   update(userId, id, data) {
@@ -84,7 +84,7 @@ export const transactionRepository = {
       ...(data.transactionDate ? { transactionDate: toDateOnly(data.transactionDate) } : {})
     };
 
-    return prisma.transaction.update({ where: { id }, data: payload, include: { category: true } });
+    return prisma.transaction.update({ where: { id }, data: payload, include: { category: true, budget: true } });
   },
   softDelete(userId, id) {
     return prisma.transaction.update({ where: { id }, data: { deletedAt: new Date() } });

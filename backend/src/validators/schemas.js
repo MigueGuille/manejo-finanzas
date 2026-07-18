@@ -31,6 +31,7 @@ export const categorySchema = z.object({
 
 export const transactionSchema = z.object({
   categoryId: uuid,
+  budgetId: uuid.optional().nullable(),
   type: z.enum(["income", "expense"]),
   amount: money,
   currency: z.enum(["USD", "VES", "BS"]).default("USD"),
@@ -67,12 +68,23 @@ export const recurringSchema = z.object({
   active: z.boolean().optional()
 });
 
-export const budgetSchema = z.object({
-  categoryId: uuid,
-  periodType: z.enum(["daily", "biweekly", "monthly"]),
+const budgetBaseSchema = z.object({
+  name: z.string().min(2).max(120),
+  categoryId: uuid.optional().nullable(),
+  periodType: z.enum(["daily", "biweekly", "monthly", "yearly"]),
   amountLimit: money,
   periodStart: isoDate,
   periodEnd: isoDate
+});
+
+export const budgetSchema = budgetBaseSchema.refine((data) => data.periodEnd >= data.periodStart, {
+  message: "periodEnd must be greater than or equal to periodStart",
+  path: ["periodEnd"]
+});
+
+export const budgetUpdateSchema = budgetBaseSchema.partial().refine((data) => !data.periodStart || !data.periodEnd || data.periodEnd >= data.periodStart, {
+  message: "periodEnd must be greater than or equal to periodStart",
+  path: ["periodEnd"]
 });
 
 export const savingsGoalSchema = z.object({
@@ -88,6 +100,7 @@ export const contributionSchema = z.object({
 
 export const settingsSchema = z.object({
   currency: z.string().min(3).max(5),
+  bankBalanceBs: optionalMoney,
   periodType: z.enum(["daily", "biweekly", "monthly"]),
   biweeklyConfig: z
     .object({

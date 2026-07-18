@@ -16,6 +16,7 @@ enum PeriodType {
   daily
   biweekly
   monthly
+  yearly
 }
 
 enum RecurrenceFrequency {
@@ -31,6 +32,7 @@ model User {
   email                String                 @unique
   passwordHash         String                 @map("password_hash")
   currency             String                 @default("MXN")
+  bankBalanceBs        Decimal                @default(0) @map("bank_balance_bs") @db.Decimal(14, 2)
   periodType           PeriodType             @default(monthly) @map("period_type")
   biweeklyConfig       Json?                  @map("biweekly_config")
   createdAt            DateTime               @default(now()) @map("created_at")
@@ -69,6 +71,7 @@ model Transaction {
   id              String                 @id @default(uuid()) @db.Uuid
   userId          String                 @map("user_id") @db.Uuid
   categoryId      String                 @map("category_id") @db.Uuid
+  budgetId        String?                @map("budget_id") @db.Uuid
   type            TransactionType
   amount          Decimal                @db.Decimal(14, 2)
   currency        String                 @default("USD")
@@ -86,10 +89,12 @@ model Transaction {
   updatedAt       DateTime               @updatedAt @map("updated_at")
   user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   category        Category               @relation(fields: [categoryId], references: [id])
+  budget          Budget?                @relation(fields: [budgetId], references: [id])
   recurrence      RecurringTransaction?  @relation(fields: [recurrenceId], references: [id])
 
   @@index([userId])
   @@index([categoryId])
+  @@index([budgetId])
   @@index([transactionDate])
   @@index([userId, transactionDate])
   @@map("transactions")
@@ -124,14 +129,16 @@ model RecurringTransaction {
 model Budget {
   id          String     @id @default(uuid()) @db.Uuid
   userId      String     @map("user_id") @db.Uuid
-  categoryId  String     @map("category_id") @db.Uuid
+  name        String     @default("Presupuesto")
+  categoryId  String?    @map("category_id") @db.Uuid
   periodType  PeriodType @map("period_type")
   amountLimit Decimal    @map("amount_limit") @db.Decimal(14, 2)
   periodStart DateTime   @map("period_start") @db.Date
   periodEnd   DateTime   @map("period_end") @db.Date
   createdAt   DateTime   @default(now()) @map("created_at")
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category    Category   @relation(fields: [categoryId], references: [id])
+  category    Category?  @relation(fields: [categoryId], references: [id])
+  transactions Transaction[]
 
   @@index([userId])
   @@index([categoryId])
