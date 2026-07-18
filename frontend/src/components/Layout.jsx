@@ -71,7 +71,7 @@ export const Layout = () => {
         </div>
       </header>
 
-      <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 px-2 shadow-[0_-10px_30px_rgba(24,33,47,0.08)] backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 md:hidden" aria-label="Navegacion principal">
+      <nav className="mobile-bottom-nav fixed left-3 right-3 z-40 rounded-2xl border border-line bg-white/95 px-2 shadow-[0_12px_40px_rgba(15,23,42,0.22)] backdrop-blur dark:border-slate-700 dark:bg-slate-950/95 md:hidden" aria-label="Navegacion principal">
         <div className="flex min-h-16 items-center gap-2">
           <div className="scrollbar-none flex flex-1 gap-2 overflow-x-auto pr-1">
             <NavItems mobile />
