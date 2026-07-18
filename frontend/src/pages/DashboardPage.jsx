@@ -43,11 +43,12 @@ export const DashboardPage = () => {
         {summary.isError ? <ErrorPanel error={summary.error} /> : null}
         {data ? (
           <>
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
               <StatCard label="Ingresos USD" value={money(data.totals.totalIncome, "USD")} tone="income" meta={money(data.totals.totalIncomeBs, "VES")} />
               <StatCard label="Gastos USD" value={money(data.totals.totalExpense, "USD")} tone="expense" meta={money(data.totals.totalExpenseBs, "VES")} />
-              <StatCard label="Balance USD" value={money(data.totals.balance, "USD")} tone="balance" meta={data.balanceDelta === null ? "Sin comparativa" : percent(data.balanceDelta)} />
-              <StatCard label="Balance Bs" value={money(data.totals.balanceBs, "VES")} tone="neutral" meta={`Dif. ${money(data.totals.exchangeDifferenceBs, "VES")}`} />
+              <StatCard label="Disponible USD" value={money(data.totals.availableBalance, "USD")} tone="balance" meta={`Balance ${money(data.totals.balance, "USD")}`} />
+              <StatCard label="Ahorros" value={money(data.totals.totalSavings, "USD")} tone="neutral" meta="Separado del disponible" />
+              <StatCard label="Banco Bs" value={money(data.totals.bankBalanceBs, "VES")} tone="neutral" meta={data.balanceDelta === null ? "Sin comparativa" : percent(data.balanceDelta)} />
             </section>
 
             <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">

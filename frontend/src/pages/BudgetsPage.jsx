@@ -6,6 +6,7 @@ import { BadgeDollarSign, Pencil, Trash2, X } from "lucide-react";
 import { z } from "zod";
 import { BudgetProgress } from "../components/BudgetProgress.jsx";
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
+import { DateInput } from "../components/DateInput.jsx";
 import { ErrorPanel, LoadingPanel, LoadingSpinner } from "../components/LoadStates.jsx";
 import { MoneyInput } from "../components/MoneyInput.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
@@ -21,28 +22,31 @@ const toDateInput = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const addDays = (date, days) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const addMonths = (date, months) => {
+  const nextDate = new Date(date);
+  nextDate.setMonth(nextDate.getMonth() + months);
+  return nextDate;
+};
+
 const getPeriodRange = (periodType, anchor = new Date()) => {
-  const year = anchor.getFullYear();
-  const month = anchor.getMonth();
-  const day = anchor.getDate();
-
-  if (periodType === "daily") {
-    return { periodStart: toDateInput(anchor), periodEnd: toDateInput(anchor) };
-  }
-
-  if (periodType === "biweekly") {
-    const start = day <= 15 ? new Date(year, month, 1) : new Date(year, month, 16);
-    const end = day <= 15 ? new Date(year, month, 15) : new Date(year, month + 1, 0);
-    return { periodStart: toDateInput(start), periodEnd: toDateInput(end) };
-  }
-
-  return {
-    periodStart: toDateInput(new Date(year, month, 1)),
-    periodEnd: toDateInput(new Date(year, month + 1, 0))
+  const endByType = {
+    daily: addDays(anchor, 30),
+    biweekly: addDays(anchor, 90),
+    monthly: addMonths(anchor, 6),
+    yearly: addMonths(anchor, 12)
   };
+
+  return { periodStart: toDateInput(anchor), periodEnd: toDateInput(endByType[periodType] || endByType.monthly) };
 };
 
 const defaultValues = () => ({
+  name: "",
   categoryId: "",
   periodType: "monthly",
   amountLimit: 0,
@@ -50,17 +54,22 @@ const defaultValues = () => ({
 });
 
 const schema = z.object({
-  categoryId: z.string().min(1, "Selecciona una categoria"),
-  periodType: z.enum(["daily", "biweekly", "monthly"]),
+  name: z.string().min(2, "Escribe un nombre"),
+  categoryId: z.string().optional(),
+  periodType: z.enum(["daily", "biweekly", "monthly", "yearly"]),
   amountLimit: z.coerce.number().positive("Monto requerido"),
   periodStart: z.string().min(10),
   periodEnd: z.string().min(10)
+}).refine((values) => values.periodEnd >= values.periodStart, {
+  message: "La fecha fin debe ser igual o posterior al inicio",
+  path: ["periodEnd"]
 });
 
 const periodOptions = [
-  { value: "monthly", label: "Mensualidad", hint: "1 al fin del mes" },
-  { value: "biweekly", label: "Quincenal", hint: "1-15 o 16-fin" },
-  { value: "daily", label: "Diario", hint: "Solo hoy" }
+  { value: "monthly", label: "Mensual", hint: "Se repite cada mes" },
+  { value: "biweekly", label: "Quincenal", hint: "Cada 15 dias" },
+  { value: "daily", label: "Diario", hint: "Cada dia" },
+  { value: "yearly", label: "Anual", hint: "Cada ano" }
 ];
 
 export const BudgetsPage = () => {
@@ -115,7 +124,8 @@ export const BudgetsPage = () => {
   const startEdit = (budget) => {
     setEditingBudget(budget);
     form.reset({
-      categoryId: budget.categoryId,
+      name: budget.name || budget.category?.name || "",
+      categoryId: budget.categoryId || "",
       periodType: budget.periodType,
       amountLimit: Number(budget.amountLimit || 0),
       periodStart: String(budget.periodStart).slice(0, 10),
@@ -129,8 +139,9 @@ export const BudgetsPage = () => {
   };
 
   const submit = (values) => {
-    if (editingBudget) setConfirmAction({ type: "update", values });
-    else createMutation.mutate(values);
+    const payload = { ...values, categoryId: values.categoryId || null };
+    if (editingBudget) setConfirmAction({ type: "update", values: payload });
+    else createMutation.mutate(payload);
   };
 
   const activeMutation = editingBudget ? updateMutation : createMutation;
@@ -150,7 +161,7 @@ export const BudgetsPage = () => {
     <>
       <PageHeader
         title="Presupuestos"
-        description="Controla limites por categoria como mensualidad, quincena o gasto diario."
+        description="Controla limites recurrentes por categoria: diario, quincenal, mensual o anual."
         action={
           <div className="flex gap-2">
             {editingBudget ? (
@@ -170,10 +181,16 @@ export const BudgetsPage = () => {
           <form id="budget-form" className="space-y-4" onSubmit={form.handleSubmit(submit)} aria-busy={activeMutation.isPending}>
             <div>
               <h2 className="font-bold text-ink dark:text-white">{editingBudget ? "Editar presupuesto" : "Nuevo presupuesto"}</h2>
-              <p className="mt-1 text-sm text-slate-500">Los limites se guardan en USD para comparar gastos en USD/Bs.</p>
+              <p className="mt-1 text-sm text-slate-500">El limite aplica por cada ocurrencia dentro de la vigencia indicada.</p>
             </div>
 
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div>
+              <label className="label">Nombre</label>
+              <input className="field" placeholder="Mercado, salidas, servicios..." {...form.register("name")} />
+              <FieldError message={form.formState.errors.name?.message} />
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
               {periodOptions.map((option) => (
                 <button
                   key={option.value}
@@ -194,13 +211,14 @@ export const BudgetsPage = () => {
             <div>
               <label className="label">Categoria</label>
               <select className="field" {...form.register("categoryId")}>
-                <option value="">Selecciona</option>
+                <option value="">Manual / sin categoria</option>
                 {expenseCategories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-xs text-slate-500">Sin categoria solo contara gastos que asignes manualmente al registrar la transaccion.</p>
               <FieldError message={form.formState.errors.categoryId?.message} />
             </div>
 
@@ -217,18 +235,19 @@ export const BudgetsPage = () => {
               <div className="rounded-lg border border-line bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
                 <span className="text-xs font-semibold uppercase text-slate-500">Vista rapida</span>
                 <p className="mt-2 text-xl font-bold text-ink dark:text-white">${selectedAmount.toFixed(2)}</p>
-                <p className="text-xs text-slate-500">{periodOptions.find((option) => option.value === selectedPeriodType)?.label}</p>
+                <p className="text-xs text-slate-500">Por periodo {periodOptions.find((option) => option.value === selectedPeriodType)?.label.toLowerCase()}</p>
               </div>
             </FormGrid>
 
             <FormGrid>
               <div>
-                <label className="label">Inicio</label>
-                <input className="field" type="date" {...form.register("periodStart")} />
+                <label className="label">Vigencia desde</label>
+                <DateInput {...form.register("periodStart")} />
               </div>
               <div>
-                <label className="label">Fin</label>
-                <input className="field" type="date" {...form.register("periodEnd")} />
+                <label className="label">Vigencia hasta</label>
+                <DateInput {...form.register("periodEnd")} />
+                <FieldError message={form.formState.errors.periodEnd?.message} />
               </div>
             </FormGrid>
 
@@ -276,7 +295,7 @@ export const BudgetsPage = () => {
         title={confirmAction?.type === "delete" ? "Eliminar presupuesto" : "Guardar cambios"}
         description={
           confirmAction?.type === "delete"
-            ? `Vas a borrar el presupuesto de "${confirmAction?.budget?.category?.name || "esta categoria"}". Esta accion no se puede deshacer.`
+            ? `Vas a borrar el presupuesto "${confirmAction?.budget?.name || confirmAction?.budget?.category?.name || "seleccionado"}". Esta accion no se puede deshacer.`
             : "Confirma que quieres reemplazar los valores actuales de este presupuesto."
         }
         confirmLabel={confirmAction?.type === "delete" ? "Eliminar" : "Guardar cambios"}

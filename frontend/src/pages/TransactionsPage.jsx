@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { z } from "zod";
 import { ConfirmDialog } from "../components/ConfirmDialog.jsx";
+import { DateInput } from "../components/DateInput.jsx";
 import { ErrorPanel, LoadingPanel, LoadingSpinner } from "../components/LoadStates.jsx";
 import { MoneyInput } from "../components/MoneyInput.jsx";
 import { PageHeader } from "../components/PageHeader.jsx";
@@ -17,6 +18,7 @@ import { currencyLabel, money, today } from "../utils/formatters.js";
 const schema = z.object({
   type: z.enum(["income", "expense"]),
   categoryId: z.string().min(1, "Selecciona una categoria"),
+  budgetId: z.string().optional(),
   amount: z.coerce.number().positive("Monto requerido"),
   currency: z.enum(["USD", "VES"]),
   exchangeRate: z.coerce.number().min(0).optional(),
@@ -31,6 +33,7 @@ export const TransactionsPage = () => {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const transactions = useQuery({ queryKey: ["transactions", filters], queryFn: () => endpoints.transactions.list(filters) });
   const categories = useQuery({ queryKey: ["categories"], queryFn: endpoints.categories.list });
+  const budgets = useQuery({ queryKey: ["budgets"], queryFn: endpoints.budgets.list });
   const [type, setType] = useState("expense");
   const filteredCategories = useMemo(() => (categories.data?.data || []).filter((category) => category.type === type), [categories.data, type]);
 
@@ -39,6 +42,7 @@ export const TransactionsPage = () => {
     defaultValues: {
       type: "expense",
       categoryId: "",
+      budgetId: "",
       amount: 0,
       currency: "VES",
       exchangeRate: 0,
@@ -49,6 +53,7 @@ export const TransactionsPage = () => {
     }
   });
   const watchedAmount = Number(form.watch("amount") || 0);
+  const watchedCategoryId = form.watch("categoryId");
   const watchedCurrency = form.watch("currency");
   const watchedRate = Number(form.watch("exchangeRate") || 0);
   const watchedDifference = Number(form.watch("exchangeDifferenceBs") || 0);
@@ -61,6 +66,7 @@ export const TransactionsPage = () => {
       form.reset({
         type,
         categoryId: "",
+        budgetId: "",
         amount: 0,
         currency: "VES",
         exchangeRate: watchedRate,
@@ -70,6 +76,7 @@ export const TransactionsPage = () => {
         transactionDate: today()
       });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       toast.success("Transaccion guardada", "El movimiento se registro correctamente.");
     }
@@ -79,12 +86,18 @@ export const TransactionsPage = () => {
     mutationFn: endpoints.transactions.remove,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
       toast.success("Transaccion eliminada", "El movimiento fue borrado correctamente.");
     }
   });
 
-  const onSubmit = (values) => createMutation.mutate({ ...values, currency: values.currency === "BS" ? "VES" : values.currency });
+  const eligibleBudgets = useMemo(
+    () => (budgets.data?.data || []).filter((budget) => !budget.categoryId || budget.categoryId === watchedCategoryId),
+    [budgets.data, watchedCategoryId]
+  );
+  const onSubmit = (values) =>
+    createMutation.mutate({ ...values, budgetId: values.type === "expense" && values.budgetId ? values.budgetId : null, currency: values.currency === "BS" ? "VES" : values.currency });
   const confirmDeleteTransaction = () => {
     if (!confirmDelete) return;
     deleteMutation.mutate(confirmDelete.id, { onSettled: () => setConfirmDelete(null) });
@@ -109,7 +122,7 @@ export const TransactionsPage = () => {
           <form id="transaction-form" className="space-y-4" onSubmit={form.handleSubmit(onSubmit)} aria-busy={createMutation.isPending}>
             <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
               {["expense", "income"].map((item) => (
-                <button key={item} type="button" className={`min-h-11 rounded-md px-3 py-2 text-sm font-semibold ${type === item ? "bg-white shadow-sm dark:bg-slate-950" : "text-slate-500"}`} onClick={() => { setType(item); form.setValue("type", item); form.setValue("categoryId", ""); }}>
+                <button key={item} type="button" className={`min-h-11 rounded-md px-3 py-2 text-sm font-semibold ${type === item ? "bg-white shadow-sm dark:bg-slate-950" : "text-slate-500"}`} onClick={() => { setType(item); form.setValue("type", item); form.setValue("categoryId", ""); form.setValue("budgetId", ""); }}>
                   {item === "expense" ? "Gasto" : "Ingreso"}
                 </button>
               ))}
@@ -149,7 +162,7 @@ export const TransactionsPage = () => {
               </div>
               <div>
                 <label className="label">Fecha</label>
-                <input className="field" type="date" {...form.register("transactionDate")} />
+                <DateInput {...form.register("transactionDate")} />
               </div>
             </FormGrid>
             <div>
@@ -176,12 +189,26 @@ export const TransactionsPage = () => {
             </div>
             <div>
               <label className="label">Categoria</label>
-              <select className="field" {...form.register("categoryId")}>
+              <select className="field" {...form.register("categoryId", { onChange: () => form.setValue("budgetId", "") })}>
                 <option value="">Selecciona</option>
                 {filteredCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
               </select>
               <FieldError message={form.formState.errors.categoryId?.message} />
             </div>
+            {type === "expense" ? (
+              <div>
+                <label className="label">Presupuesto</label>
+                <select className="field" {...form.register("budgetId")} disabled={!watchedCategoryId}>
+                  <option value="">Sin presupuesto</option>
+                  {eligibleBudgets.map((budget) => (
+                    <option key={budget.id} value={budget.id}>
+                      {budget.name || budget.category?.name || "Presupuesto"}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-slate-500">Los presupuestos manuales solo cuentan los gastos que asignes aqui.</p>
+              </div>
+            ) : null}
             <FormGrid>
               <div>
                 <label className="label">Metodo</label>
@@ -207,11 +234,11 @@ export const TransactionsPage = () => {
             </div>
             <div>
               <label className="label">Desde</label>
-              <input className="field" type="date" onChange={(event) => updateFilter({ from: event.target.value || undefined })} />
+              <DateInput onChange={(event) => updateFilter({ from: event.target.value || undefined })} />
             </div>
             <div>
               <label className="label">Hasta</label>
-              <input className="field" type="date" onChange={(event) => updateFilter({ to: event.target.value || undefined })} />
+              <DateInput onChange={(event) => updateFilter({ to: event.target.value || undefined })} />
             </div>
             <div>
               <label className="label">Tipo</label>
@@ -232,6 +259,7 @@ export const TransactionsPage = () => {
                   <div>
                     <p className="text-xs font-semibold uppercase text-slate-500">{item.transactionDate.slice(0, 10)} · {item.type === "expense" ? "Gasto" : "Ingreso"}</p>
                     <h3 className="mt-1 font-bold text-ink dark:text-white">{item.category?.name}</h3>
+                    {item.budget?.name ? <p className="mt-1 text-xs font-semibold text-slate-400">Presupuesto: {item.budget.name}</p> : null}
                     <p className="text-sm text-slate-500">{item.paymentMethod || "Sin metodo"} · {item.description || "Sin descripcion"}</p>
                   </div>
                   <button className="rounded-md p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50" type="button" title="Eliminar" onClick={() => setConfirmDelete(item)} disabled={deleteMutation.isPending}>
@@ -262,13 +290,14 @@ export const TransactionsPage = () => {
 
           <div className="panel hidden overflow-hidden md:block">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-full min-w-[880px] text-left text-sm">
                 <thead className="bg-slate-100 text-xs uppercase text-slate-500 dark:bg-slate-800">
                   <tr>
                     <th className="px-4 py-3">Fecha</th>
                     <th className="px-4 py-3">Tipo</th>
                     <th className="px-4 py-3">Categoria</th>
                     <th className="px-4 py-3">Metodo</th>
+                    <th className="px-4 py-3">Presupuesto</th>
                     <th className="px-4 py-3 text-right">Original</th>
                     <th className="px-4 py-3 text-right">USD</th>
                     <th className="px-4 py-3 text-right">Bs</th>
@@ -282,6 +311,7 @@ export const TransactionsPage = () => {
                       <td className="px-4 py-3">{item.type === "expense" ? "Gasto" : "Ingreso"}</td>
                       <td className="px-4 py-3">{item.category?.name}</td>
                       <td className="px-4 py-3">{item.paymentMethod}</td>
+                      <td className="px-4 py-3">{item.budget?.name || "-"}</td>
                       <td className={`px-4 py-3 text-right font-bold ${item.type === "expense" ? "text-coral" : "text-mint"}`}>{money(item.amount, item.currency)} <span className="text-xs text-slate-400">{currencyLabel(item.currency)}</span></td>
                       <td className="px-4 py-3 text-right font-semibold">{money(item.amountUsd, "USD")}</td>
                       <td className="px-4 py-3 text-right font-semibold">{money(item.amountBs, "VES")}</td>

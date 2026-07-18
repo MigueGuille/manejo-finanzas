@@ -46,4 +46,9 @@ export const parseDecimalInput = (value = "") => {
 
 export const percent = (value = 0) => `${Number(value || 0).toFixed(1)}%`;
 
-export const today = () => new Date().toISOString().slice(0, 10);
+export const today = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};

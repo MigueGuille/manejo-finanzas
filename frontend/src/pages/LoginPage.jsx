@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { PiggyBank } from "lucide-react";
+import { Moon, PiggyBank, Sun } from "lucide-react";
 import { Navigate, useLocation } from "react-router-dom";
 import { LoadingSpinner } from "../components/LoadStates.jsx";
 import { FieldError } from "../components/forms.jsx";
 import { useAuth } from "../store/AuthProvider.jsx";
+import { useTheme } from "../store/ThemeProvider.jsx";
 
 const schema = z.object({
   email: z.string().email("Correo invalido"),
@@ -19,6 +20,7 @@ export const LoginPage = () => {
   const [serverError, setServerError] = useState("");
   const location = useLocation();
   const { login, register, isAuthenticated, isReady } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const from = location.state?.from?.pathname ? `${location.state.from.pathname}${location.state.from.search || ""}` : "/";
   const {
     register: formRegister,
@@ -40,6 +42,14 @@ export const LoginPage = () => {
 
   return (
     <main className="grid min-h-screen place-items-center bg-surface px-4 py-8 dark:bg-slate-950">
+      <button
+        className="fixed right-4 top-4 grid h-10 w-10 place-items-center rounded-md border border-line bg-white text-slate-600 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+        type="button"
+        title={isDark ? "Modo claro" : "Modo oscuro"}
+        onClick={toggleTheme}
+      >
+        {isDark ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
       <section className="panel w-full max-w-md p-6">
         <div className="mb-6 flex items-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-lg bg-ink text-white dark:bg-mint dark:text-ink">

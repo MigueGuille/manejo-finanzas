@@ -14,6 +14,27 @@ body {
   margin: 0;
 }
 
+.dark body {
+  background: #020617;
+}
+
+.mobile-app-header {
+  padding-top: max(env(safe-area-inset-top), 0px);
+}
+
+.mobile-main-offset {
+  padding-top: calc(7.5rem + env(safe-area-inset-top));
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 @keyframes toast-slide-in {
   from {
     opacity: 0;
